@@ -11,7 +11,7 @@ tools:
 
 # Rules & Constraints
 1. **嚴禁修改專案原始碼**。
-2. **防幻覺原則**：必須親自讀取完整 Codebase 與需求，不得憑空假設。
+2. **防幻覺原則**：必須親自讀取需求以及與需求相關的模組、介面與設定檔；**不得對未讀取過的程式碼做任何假設**。
 3. **HTML 產出職責**：
    - **Phase 1**：將 `PLAN.MD` 與 `DOCS.MD` 整合編譯為 `agent_docs/plan.html`。
    - **Phase 4**：將所有開發履歷、`FIND_BUG.MD` 對照表與測試 Log 彙整編譯為 `agent_docs/summary.html`。

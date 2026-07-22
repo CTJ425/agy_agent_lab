@@ -1,6 +1,6 @@
 # Antigravity Agent 多 Agent 自動化開發工作流框架 (Multi-Agent Engineering Pipeline)
 
-本專案包含一套基於 **Google Antigravity AI Agent** 規範所打造的**多 Agent 自動化軟體工程工作流框架**。透過全域規範 (`GEMINI.md`) 與階段式流程定義 (`.antigravity/workflow.md`)，實現需求規劃、架構辯論、程式實作、雙重獨立審查、Bug 無上限修復迴圈以及自動化 Git Commit 的完整閉環。
+本專案包含一套基於 **Google Antigravity AI Agent** 規範所打造的**多 Agent 自動化軟體工程工作流框架**。透過全域規範 (`GEMINI.md`) 與階段式流程定義 (`.antigravity/workflow.md`)，實現需求規劃、架構辯論、程式實作、雙重獨立審查、Bug 修到好為止（含人類升級門檻）以及自動化 Git Commit 的完整閉環。
 
 ---
 
@@ -9,7 +9,7 @@
 1. **嚴格防幻覺與依據導向 (Zero Hallucination)**：所有 Agent 決策與變更均必須 100% 依據實體檔案與現有程式碼。
 2. **4 階段嚴格開發管線 (4-Phase Pipeline)**：包含規劃辯論、程式編寫、雙重審查（邏輯 + 動態測試）、結案總覽。
 3. **人類審核門檻 (Human Checkpoint)**：Phase 1 規劃完成後強制暫停，產出 HTML 預覽檔供人類審閱確認後方可動工。
-4. **雙審獨立驗證與修到好機制 (Fix Until Approved)**：由 Logic Reviewer 與 Testing Reviewer 雙重獨立卡關，未通過前持續進行修復迴圈。
+4. **雙審獨立驗證與修到好機制 (Fix Until Approved + Escalation)**：由 Logic Reviewer 與 Testing Reviewer 雙重獨立卡關，未通過前持續進行修復迴圈；同一 Bug 連續 5 輪未修復則升級人類決策，避免無限空轉。
 5. **外部 Bug 閉環管理 (External Bug Channel)**：提供 `FIND_BUG.MD` 作為人類或外部 AI Agent 提交 Bug 的統一入口，自動轉化為修復 Task。
 6. **自動化 Commit 與 HTML 視覺化報告**：審查通過後自動 Trigger Git Commit，並產出 `plan.html` 與 `summary.html` 視覺化頁面。
 
@@ -30,7 +30,10 @@
 │   └── testing-reviewer.md      # 動態與測試審查員 Role Prompt
 └── agent_docs/                  # 所有 Agent 產出的文件、Log 與 HTML 報告目錄
     ├── PROGRESS.MD              # 目前 Phase 與進度狀態
+    ├── PLAN_DRAFT.MD            # Lead Architect 架構初稿
+    ├── PLAN_FEEDBACK.MD         # Critic Architect 架構審查反饋
     ├── PLAN.MD / plan.html      # 開發計畫與 Phase 1 視覺化預覽頁
+    ├── DOCS.MD                  # 使用者說明與 API 規格草稿
     ├── TASK.MD / TASKED.MD      # 待執行與已完成任務清單
     ├── FIND_BUG.MD              # 外部 Bug 提交日誌
     ├── REVIEW_LOGIC.MD          # 靜態邏輯審查報告
@@ -48,11 +51,11 @@
 
 1. **Master Orchestrator 職責**：預設角色為總協調者，嚴格按 `.antigravity/workflow.md` 調度各 Subagent。
 2. **禁止幻想原則**：Agent 不可憑空捏造 API 或邏輯，必須讀取實體 Codebase。
-3. **修到好為止條款 (Fix Until Approved)**：取消修復次數限制，直到邏輯與測試雙審查員皆標註 `APPROVED`。
-4. **異常閉環條款**：任何階段發生的 Runtime Error 一律不得隨意改 Code，需走標準「紀錄 ➔ Task 派發 ➔ 修復 ➔ 雙審」管道。
-5. **自動 Git Commit 條款**：雙審通過且無未修復的 `OPEN` Bug 時，自動執行 Git Commit：
+3. **修到好為止與升級門檻條款 (Fix Until Approved + Escalation)**：持續修復直到邏輯與測試雙審查員皆標註 `APPROVED`；同一 Bug 連續 5 輪未通過時，Orchestrator 暫停迴圈並升級人類決策。
+4. **異常閉環條款**：Phase 2 交付前 senior-coder 可直接自修（須記錄 CHANGELOG）；進入 Phase 3 後的任何 Runtime Error 一律不得隨意改 Code，需走標準「紀錄 ➔ Task 派發 ➔ 修復 ➔ 雙審」管道。
+5. **自動 Git Commit 條款**：雙審通過且 `FIND_BUG.MD` 無 `OPEN` / `IN_PROGRESS` Bug 時，**由 Orchestrator 統一執行** Git Commit（僅 stage 本次 Task 涉及檔案與 `agent_docs/`，嚴禁 `git add .`）：
    ```bash
-   git add .
+   git add <本次 Task 涉及的檔案> agent_docs/
    git commit -m "feat/fix: [TASK-ID/BUG-ID] 簡短描述" -m "重點摘要"
    ```
 6. **HTML 視覺化報告規範**：Phase 1 強制產出 `agent_docs/plan.html`，Phase 4 強制產出 `agent_docs/summary.html`。
@@ -66,7 +69,7 @@
 | **Lead Architect** | `.antigravity/lead-architect.md` | 主架構師。負責分析需求、規劃架構、拆解任務，編譯 `plan.html` 與結案 `summary.html`。嚴禁修改原始碼。 | file_reader, file_writer, terminal |
 | **Critic Architect** | `.antigravity/critic-architect.md` | 批判型架構審查員。負責針對 `lead-architect` 的規劃草稿進行可行性與安全性挑戰，輸出 `PLAN_FEEDBACK.MD`。嚴禁修改原始碼。 | file_reader, file_writer |
 | **Senior Coder** | `.antigravity/senior-coder.md` | 資深開發工程師。依據 `PLAN.MD`、`TASK.MD` 與 `FIND_BUG.MD` 進行程式碼實作與 Bug 修復，並維護 `CHANGELOG.MD`。 | file_reader, file_writer, terminal, web_search |
-| **Logic Reviewer** | `.antigravity/logic-reviewer.md` | 邏輯與靜態審查員。比對 `git diff` 與計畫，檢查邏輯漏洞與邊界條件。雙審通過時觸發 Git Commit。嚴禁修改業務程式碼。 | file_reader, file_writer, terminal |
+| **Logic Reviewer** | `.antigravity/logic-reviewer.md` | 邏輯與靜態審查員。比對 `git diff` 與計畫，檢查邏輯漏洞與邊界條件，輸出至 `REVIEW_LOGIC.MD`。嚴禁修改業務程式碼與執行 git 寫入。 | file_reader, file_writer, terminal |
 | **Testing Reviewer** | `.antigravity/testing-reviewer.md` | 動態與測試審查員。透過 Terminal 實際執行單元測試、E2E 測試或 API 呼叫，驗證運行穩定度。嚴禁修改業務程式碼。 | file_reader, file_writer, terminal |
 
 ---
@@ -97,10 +100,11 @@ graph TD
     subgraph Phase 3
         Phase3 --> CheckBug[檢查 FIND_BUG.MD 外部 Bug]
         CheckBug --> Reviewers[Parallel Spawn Logic Reviewer & Testing Reviewer]
-        Reviewers -- Any Rejected / Runtime Error / Open Bug --> FixLoop[將 Bug 寫入 FEEDBACK & 追加 Task]
+        Reviewers -- Any Rejected / Runtime Error / Open Bug --> FixLoop[Orchestrator 彙整 FEEDBACK & 追加 Task]
+        FixLoop -- 同一 Bug 連續 5 輪未過 --> Escalate{⛔ 升級人類決策}
         FixLoop --> SC2[Senior Coder 修復程式碼 & 更新 CHANGELOG]
         SC2 --> Reviewers
-        Reviewers -- Dual Approved & No Open Bugs --> GitCommit[自動執行 Git Commit]
+        Reviewers -- Dual Approved & No Open Bugs --> GitCommit[Orchestrator 自動執行 Git Commit]
     end
 
     GitCommit --> Phase4[Phase 4: 全系統巡檢與總覽產出]
@@ -130,11 +134,12 @@ graph TD
 
 #### Phase 3: 雙重獨立審查、修復與自動 Git Commit
 1. Orchestrator 更新進度為 `Phase 3: Code Review & Runtime Verification`。
-2. 檢查 `agent_docs/FIND_BUG.MD` 是否有 `OPEN` 的外部回報項目。
-3. 並行啟動 `logic-reviewer` (靜態邏輯) 與 `testing-reviewer` (實體測試)。
-4. **無上限修復迴圈 (Infinite Fix Loop)**：
-   - 若有任一 `REJECTED`、`OPEN` Bug 或 Runtime Error ➔ 整理步驟寫入 `REVIEW_FEEDBACK.MD` ➔ 追加 Task ➔ 派發 `senior-coder` 修正 ➔ 重新觸發雙審查。
-5. **Auto Git Commit**：當雙審查皆標示 `APPROVED` 且無 `OPEN` Bug，自動執行 Git Commit。
+2. 檢查 `agent_docs/FIND_BUG.MD` 是否有 `OPEN` 的外部回報項目，並進行 Triage（屬實者轉 Task，誤報標 `INVALID` 附理由）。
+3. 並行啟動 `logic-reviewer` (靜態邏輯) 與 `testing-reviewer` (實體測試)，各自只寫 `REVIEW_LOGIC.MD` / `REVIEW_TEST.MD`。
+4. **修復迴圈（修到好為止 + 升級門檻）**：
+   - 若有任一 `REJECTED`、`OPEN` / `IN_PROGRESS` Bug 或 Runtime Error ➔ Orchestrator 彙整寫入 `REVIEW_FEEDBACK.MD` ➔ 追加 Task ➔ 派發 `senior-coder` 修正 ➔ 重新觸發雙審查。
+   - 同一 Bug 連續 5 輪未通過 ➔ 暫停迴圈，升級人類決策。
+5. **Auto Git Commit**：當雙審查皆標示 `APPROVED` 且無 `OPEN` / `IN_PROGRESS` Bug，由 Orchestrator 統一執行 Git Commit。
 
 #### Phase 4: 最終架構巡檢與單一 HTML 總覽產出
 1. Orchestrator 更新進度為 `Phase 4: Summary`。
@@ -164,8 +169,8 @@ git push origin main
 若在測試或使用過程中發現問題，人類使用者或外部 AI 測試 Agent 可直接寫入 `agent_docs/FIND_BUG.MD`：
 ```markdown
 ## [2026-07-22 17:00:00] Bug Title
-- Status: OPEN
+- Status: OPEN   <!-- 狀態限定：OPEN / IN_PROGRESS / RESOLVED / INVALID -->
 - Description: 詳細錯誤描述與重現步驟
 - Log: 相關錯誤日誌
 ```
-Orchestrator 與 Coder 會在 Phase 3 自動將其擷取並修復至 `Status: RESOLVED`。
+Orchestrator 與 Coder 會在 Phase 3 自動將其擷取並修復至 `Status: RESOLVED`；若判定為誤報或無法重現，會標為 `Status: INVALID` 並附理由（不阻擋結案）。
